@@ -1,0 +1,984 @@
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freezer Manager</title>
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f1f4f6;
+            color: #263746;
+        }
+
+        header {
+            background: #fff;
+            padding: 24px 40px;
+            border-bottom: 1px solid #dce3e8;
+        }
+
+        header h1 { margin: 0; font-size: 26px; }
+        header p { margin: 6px 0 0; color: #71808d; }
+
+        main {
+            max-width: 1100px;
+            margin: 45px auto;
+            padding: 0 24px;
+        }
+
+        .intro { margin-bottom: 30px; }
+        .intro h2 { margin-bottom: 8px; }
+        .intro p { color: #71808d; margin: 0; }
+
+        .freezers {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 45px;
+            flex-wrap: wrap;
+        }
+
+        .freezer {
+            background: #dce4e9;
+            border: 8px solid #b8c5ce;
+            border-radius: 18px;
+            padding: 18px;
+            width: 300px;
+            box-shadow: 0 8px 20px #26374618;
+        }
+
+        .freezer.small { width: 250px; }
+
+        .freezer h3 {
+            text-align: center;
+            margin: 0 0 15px;
+            font-size: 17px;
+        }
+
+        .drawer {
+            width: 100%;
+            min-height: 105px;
+            margin-bottom: 12px;
+            border: 2px solid #aab8c2;
+            border-radius: 9px;
+            background: linear-gradient(145deg, #f9fbfc, #d5dfe5);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            color: #354b5a;
+            font-size: 14px;
+            transition: .2s;
+        }
+
+        .drawer:hover {
+            background: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px #26374620;
+        }
+
+        .handle {
+            width: 65px;
+            height: 7px;
+            border-radius: 5px;
+            background: #8b9ba6;
+        }
+
+        .drawer strong { font-size: 15px; }
+
+        .back {
+            border: none;
+            background: #dce4e9;
+            padding: 11px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+
+        .back:hover { background: #cbd7df; }
+
+        .drawer-content {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #dce3e8;
+            min-height: 180px;
+        }
+
+        .hidden { display: none !important; }
+
+        .primary {
+            background: #3d718e;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .primary:hover { background: #315e76; }
+
+        .secondary {
+            background: #dce4e9;
+            color: #354b5a;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .danger {
+            background: #f8e7e7;
+            color: #a33b3b;
+            border: none;
+            padding: 9px 13px;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .food-item {
+            padding: 17px;
+            border: 1px solid #dce3e8;
+            border-radius: 9px;
+            margin-bottom: 12px;
+        }
+
+        .food-item h3 {
+            margin: 0 0 12px;
+            font-size: 17px;
+        }
+
+        .food-details {
+            color: #71808d;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .quantity-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 9px;
+            margin-bottom: 8px;
+        }
+
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+        }
+
+        .quantity-button {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 7px;
+            background: #e8eef2;
+            color: #354b5a;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .quantity-button:hover { background: #d5e1e8; }
+
+        .quantity-value {
+            min-width: 25px;
+            text-align: center;
+            font-weight: bold;
+            color: #263746;
+        }
+
+        .unit-label {
+            color: #71808d;
+            font-size: 13px;
+        }
+
+        .food-actions {
+            display: flex;
+            gap: 9px;
+            margin-top: 13px;
+            flex-wrap: wrap;
+        }
+
+        .form-box {
+            background: #f7f9fa;
+            border: 1px solid #dce3e8;
+            border-radius: 9px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .form-box h3 { margin-top: 0; }
+
+        .form-group { margin-bottom: 16px; }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 7px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 11px;
+            border: 1px solid #cbd5dc;
+            border-radius: 7px;
+            font-size: 15px;
+            background: white;
+            color: #263746;
+        }
+
+        .form-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .empty {
+            color: #71808d;
+            margin-bottom: 20px;
+        }
+
+        /* Backup */
+
+        .backup-box {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 22px;
+            padding-top: 18px;
+            border-top: 1px solid #dce3e8;
+        }
+
+        .backup-info {
+            color: #71808d;
+            font-size: 12px;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 600px) {
+            header { padding: 18px; }
+            header h1 { font-size: 22px; }
+
+            main {
+                margin: 25px auto;
+                padding: 0 10px;
+            }
+
+            .freezers {
+                flex-wrap: nowrap;
+                gap: 8px;
+            }
+
+            .freezer, .freezer.small {
+                width: calc(50% - 4px);
+                min-width: 0;
+                padding: 8px;
+                border-width: 5px;
+                border-radius: 12px;
+            }
+
+            .freezer h3 {
+                font-size: 13px;
+            }
+
+            .drawer {
+                min-height: 85px;
+                font-size: 12px;
+                gap: 7px;
+            }
+
+            .drawer strong {
+                font-size: 13px;
+            }
+
+            .handle {
+                width: 40px;
+                height: 6px;
+            }
+
+            .drawer-content { padding: 17px; }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>❄️ Freezer Manager</h1>
+    <p>Il tuo inventario, sempre sotto controllo.</p>
+</header>
+
+<main>
+
+    <div id="home">
+        <div class="intro">
+            <h2>I tuoi congelatori</h2>
+            <p>Seleziona uno scomparto per visualizzarne il contenuto.</p>
+        </div>
+
+        <div class="freezers">
+
+            <section class="freezer">
+                <h3>Congelatore 1</h3>
+
+                <button class="drawer" onclick="openDrawer('Congelatore 1', 'Alto')">
+                    <span class="handle"></span>
+                    <strong>Alto</strong>
+                    <span id="count-1-Alto">0 alimenti</span>
+                </button>
+
+                <button class="drawer" onclick="openDrawer('Congelatore 1', 'Centrale')">
+                    <span class="handle"></span>
+                    <strong>Centrale</strong>
+                    <span id="count-1-Centrale">0 alimenti</span>
+                </button>
+
+                <button class="drawer" onclick="openDrawer('Congelatore 1', 'Basso')">
+                    <span class="handle"></span>
+                    <strong>Basso</strong>
+                    <span id="count-1-Basso">0 alimenti</span>
+                </button>
+            </section>
+
+            <section class="freezer small">
+                <h3>Congelatore 2</h3>
+
+                <button class="drawer" onclick="openDrawer('Congelatore 2', 'Alto')">
+                    <span class="handle"></span>
+                    <strong>Alto</strong>
+                    <span id="count-2-Alto">0 alimenti</span>
+                </button>
+
+                <button class="drawer" onclick="openDrawer('Congelatore 2', 'Centrale')">
+                    <span class="handle"></span>
+                    <strong>Centrale</strong>
+                    <span id="count-2-Centrale">0 alimenti</span>
+                </button>
+
+                <button class="drawer" onclick="openDrawer('Congelatore 2', 'Basso')">
+                    <span class="handle"></span>
+                    <strong>Basso</strong>
+                    <span id="count-2-Basso">0 alimenti</span>
+                </button>
+            </section>
+
+        </div>
+
+        <!-- Backup -->
+
+        <div class="backup-box">
+            <button class="secondary" onclick="exportBackup()">
+                ↓ Esporta backup
+            </button>
+
+            <button class="secondary" onclick="document.getElementById('backupFile').click()">
+                ↑ Importa backup
+            </button>
+
+            <input
+                type="file"
+                id="backupFile"
+                accept=".json,application/json"
+                class="hidden"
+                onchange="importBackup(event)"
+            >
+        </div>
+
+        <p class="backup-info">
+            Conserva periodicamente una copia del tuo inventario.
+            Il backup contiene tutti gli alimenti e le relative informazioni.
+        </p>
+
+    </div>
+
+    <div id="drawerPage" class="hidden">
+
+        <button class="back" onclick="goHome()">
+            ← Torna ai congelatori
+        </button>
+
+        <div class="intro">
+            <h2 id="drawerTitle"></h2>
+            <p>Contenuto dello scomparto.</p>
+        </div>
+
+        <div class="drawer-content">
+
+            <div id="foodList"></div>
+
+            <button class="primary" onclick="showForm()">
+                + Aggiungi alimento
+            </button>
+
+            <div id="foodForm" class="form-box hidden">
+
+                <h3 id="formTitle">Nuovo alimento</h3>
+
+                <form id="foodEntryForm">
+
+                    <div class="form-group">
+                        <label for="foodName">Nome alimento</label>
+                        <input type="text" id="foodName"
+                               placeholder="Es. Ragù vegetale" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="foodQuantity">Quantità</label>
+                        <input type="number" id="foodQuantity"
+                               min="0.01" step="any"
+                               placeholder="Es. 7" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="foodUnit">Unità di misura</label>
+                        <select id="foodUnit" required>
+                            <option value="Pezzi">Pezzi</option>
+                            <option value="Porzioni">Porzioni</option>
+                            <option value="g">Grammi (g)</option>
+                            <option value="kg">Chilogrammi (kg)</option>
+                            <option value="ml">Millilitri (ml)</option>
+                            <option value="L">Litri (L)</option>
+                            <option value="Bicchieri da 200 cc">Bicchieri da 200 cc</option>
+                            <option value="Contenitori">Contenitori</option>
+                            <option value="Confezioni">Confezioni</option>
+                            <option value="Personalizzata">Personalizzata...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group hidden" id="customUnitGroup">
+                        <label for="customUnit">Unità personalizzata</label>
+                        <input type="text" id="customUnit"
+                               placeholder="Es. Vaschette da 500 ml">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="foodDate">Mese e anno di congelamento</label>
+                        <input type="month" id="foodDate" required>
+                    </div>
+
+                    <div class="form-buttons">
+                        <button type="submit" class="primary">
+                            Salva alimento
+                        </button>
+
+                        <button type="button" class="secondary"
+                                onclick="hideForm()">
+                            Annulla
+                        </button>
+                    </div>
+
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+</main>
+
+<script>
+
+    const STORAGE_KEY = 'freezerManagerFoods';
+
+    let foods = loadFoods();
+    let currentFreezer = '';
+    let currentPosition = '';
+    let editingId = null;
+
+    function loadFoods() {
+        try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function saveFoods() {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(foods));
+        } catch (error) {
+            alert('Impossibile salvare i dati nel browser.');
+        }
+    }
+
+    // ESPORTAZIONE BACKUP
+
+    function exportBackup() {
+        const backup = {
+            app: 'Freezer Manager',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            foods: foods
+        };
+
+        const content = JSON.stringify(backup, null, 2);
+
+        const blob = new Blob(
+            [content],
+            { type: 'application/json' }
+        );
+
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = url;
+
+        const today = new Date().toISOString().slice(0, 10);
+        link.download = 'freezer-manager-backup-' + today + '.json';
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        URL.revokeObjectURL(url);
+    }
+
+    // IMPORTAZIONE BACKUP
+
+    function importBackup(event) {
+        const file = event.target.files[0];
+
+        if (!file) return;
+
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+            try {
+                const backup = JSON.parse(e.target.result);
+
+                const importedFoods = Array.isArray(backup)
+                    ? backup
+                    : backup.foods;
+
+                if (!Array.isArray(importedFoods)) {
+                    throw new Error('Formato non valido');
+                }
+
+                const valid = importedFoods.every(food =>
+                    food &&
+                    typeof food.id === 'string' &&
+                    typeof food.name === 'string' &&
+                    food.name.trim() !== '' &&
+                    typeof food.quantity === 'number' &&
+                    Number.isFinite(food.quantity) &&
+                    food.quantity >= 0 &&
+                    typeof food.unit === 'string' &&
+                    food.unit.trim() !== '' &&
+                    typeof food.date === 'string' &&
+                    /^\d{4}-(0[1-9]|1[0-2])$/.test(food.date) &&
+                    ['Congelatore 1', 'Congelatore 2'].includes(food.freezer) &&
+                    ['Alto', 'Centrale', 'Basso'].includes(food.position)
+                );
+
+                if (!valid) {
+                    throw new Error('Dati non validi');
+                }
+
+                if (!confirm(
+                    'Attenzione: importando questo backup, ' +
+                    'l’inventario attuale verrà sostituito.\n\n' +
+                    'Alimenti da importare: ' + importedFoods.length +
+                    '\n\nVuoi continuare?'
+                )) {
+                    event.target.value = '';
+                    return;
+                }
+
+                foods = importedFoods.map(food => ({ ...food }));
+
+                saveFoods();
+                updateCounts();
+
+                if (!document.getElementById('drawerPage').classList.contains('hidden')) {
+                    renderFoods();
+                }
+
+                hideForm();
+
+                alert(
+                    'Backup importato correttamente!\n' +
+                    'Alimenti ripristinati: ' + foods.length
+                );
+
+            } catch (error) {
+                alert(
+                    'Impossibile importare il backup.\n' +
+                    'Il file potrebbe essere danneggiato o non valido.'
+                );
+            }
+
+            event.target.value = '';
+        };
+
+        reader.onerror = function() {
+            alert('Errore durante la lettura del file.');
+            event.target.value = '';
+        };
+
+        reader.readAsText(file);
+    }
+
+    function openDrawer(freezer, position) {
+        currentFreezer = freezer;
+        currentPosition = position;
+
+        document.getElementById('home').classList.add('hidden');
+        document.getElementById('drawerPage').classList.remove('hidden');
+
+        document.getElementById('drawerTitle').textContent =
+            freezer + ' – ' + position;
+
+        hideForm();
+        renderFoods();
+    }
+
+    function goHome() {
+        hideForm();
+
+        document.getElementById('drawerPage').classList.add('hidden');
+        document.getElementById('home').classList.remove('hidden');
+
+        updateCounts();
+    }
+
+    function showForm(foodId = null) {
+        editingId = foodId;
+
+        const form = document.getElementById('foodEntryForm');
+        const box = document.getElementById('foodForm');
+
+        form.reset();
+
+        document.getElementById('formTitle').textContent =
+            foodId ? 'Modifica alimento' : 'Nuovo alimento';
+
+        if (foodId !== null) {
+            const food = foods.find(item => item.id === foodId);
+
+            if (!food) return;
+
+            document.getElementById('foodName').value = food.name;
+            document.getElementById('foodQuantity').value = food.quantity;
+            document.getElementById('foodDate').value = food.date;
+
+            const unitSelect = document.getElementById('foodUnit');
+            const options = Array.from(unitSelect.options);
+            const unitExists = options.some(option => option.value === food.unit);
+
+            if (unitExists) {
+                unitSelect.value = food.unit;
+            } else {
+                unitSelect.value = 'Personalizzata';
+                document.getElementById('customUnit').value = food.unit;
+            }
+        }
+
+        updateCustomUnitVisibility();
+
+        box.classList.remove('hidden');
+        document.getElementById('foodName').focus();
+    }
+
+    function hideForm() {
+        document.getElementById('foodForm').classList.add('hidden');
+        editingId = null;
+    }
+
+    function updateCustomUnitVisibility() {
+        const isCustom =
+            document.getElementById('foodUnit').value === 'Personalizzata';
+
+        document.getElementById('customUnitGroup')
+            .classList.toggle('hidden', !isCustom);
+
+        document.getElementById('customUnit').required = isCustom;
+    }
+
+    document.getElementById('foodUnit').addEventListener(
+        'change',
+        updateCustomUnitVisibility
+    );
+
+    document.getElementById('foodEntryForm').addEventListener(
+        'submit',
+        function(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('foodName').value.trim();
+            const quantity = Number(
+                document.getElementById('foodQuantity').value
+            );
+
+            const selectedUnit =
+                document.getElementById('foodUnit').value;
+
+            const unit = selectedUnit === 'Personalizzata'
+                ? document.getElementById('customUnit').value.trim()
+                : selectedUnit;
+
+            const date = document.getElementById('foodDate').value;
+
+            if (!name || !unit || !date ||
+                !Number.isFinite(quantity) || quantity <= 0) {
+                alert('Controlla i dati inseriti.');
+                return;
+            }
+
+            if (editingId !== null) {
+                const food = foods.find(item => item.id === editingId);
+
+                if (food) {
+                    food.name = name;
+                    food.quantity = quantity;
+                    food.unit = unit;
+                    food.date = date;
+                }
+            } else {
+                foods.push({
+                    id: Date.now().toString() + Math.random().toString(16).slice(2),
+                    freezer: currentFreezer,
+                    position: currentPosition,
+                    name: name,
+                    quantity: quantity,
+                    unit: unit,
+                    date: date
+                });
+            }
+
+            saveFoods();
+            hideForm();
+            renderFoods();
+        }
+    );
+
+    // Modifica rapida della quantità
+
+    function changeQuantity(id, direction) {
+        const food = foods.find(item => item.id === id);
+
+        if (!food) return;
+
+        const unit = food.unit.trim().toLowerCase();
+
+        const step = (unit === 'g' || unit === 'grammi') ? 100 : 1;
+
+        const newQuantity = Number(food.quantity) + (step * direction);
+
+        if (newQuantity < 0) return;
+
+        food.quantity = newQuantity;
+
+        saveFoods();
+        renderFoods();
+    }
+
+    // Spostamento dell'alimento
+
+    function moveFood(id) {
+        const food = foods.find(item => item.id === id);
+
+        if (!food) return;
+
+        const freezerOptions = [
+            'Congelatore 1',
+            'Congelatore 2'
+        ];
+
+        const positionOptions = [
+            'Alto',
+            'Centrale',
+            'Basso'
+        ];
+
+        const newFreezer = prompt(
+            'Scegli il congelatore di destinazione:\n1 - Congelatore 1\n2 - Congelatore 2',
+            food.freezer === 'Congelatore 1' ? '1' : '2'
+        );
+
+        if (newFreezer === null) return;
+
+        const freezerIndex = Number(newFreezer) - 1;
+
+        if (!Number.isInteger(freezerIndex) ||
+            freezerIndex < 0 ||
+            freezerIndex >= freezerOptions.length) {
+            alert('Congelatore non valido.');
+            return;
+        }
+
+        const selectedFreezer = freezerOptions[freezerIndex];
+
+        const newPosition = prompt(
+            'Scegli il cassetto di destinazione:\n1 - Alto\n2 - Centrale\n3 - Basso',
+            positionOptions.indexOf(food.position) + 1
+        );
+
+        if (newPosition === null) return;
+
+        const positionIndex = Number(newPosition) - 1;
+
+        if (!Number.isInteger(positionIndex) ||
+            positionIndex < 0 ||
+            positionIndex >= positionOptions.length) {
+            alert('Cassetto non valido.');
+            return;
+        }
+
+        const selectedPosition = positionOptions[positionIndex];
+
+        if (selectedFreezer === food.freezer &&
+            selectedPosition === food.position) {
+            alert('L’alimento si trova già in questo scomparto.');
+            return;
+        }
+
+        food.freezer = selectedFreezer;
+        food.position = selectedPosition;
+
+        saveFoods();
+        renderFoods();
+        updateCounts();
+
+        alert('Alimento spostato correttamente.');
+    }
+
+    function renderFoods() {
+        const list = document.getElementById('foodList');
+
+        const currentFoods = foods.filter(food =>
+            food.freezer === currentFreezer &&
+            food.position === currentPosition
+        );
+
+        if (currentFoods.length === 0) {
+            list.innerHTML =
+                '<p class="empty">Questo scomparto è ancora vuoto.</p>';
+            return;
+        }
+
+        list.innerHTML = currentFoods.map(food => `
+            <div class="food-item">
+                <h3>${escapeHTML(food.name)}</h3>
+
+                <div class="quantity-row">
+                    <span class="food-details">Quantità:</span>
+
+                    <div class="quantity-controls">
+                        <button class="quantity-button"
+                            onclick="changeQuantity('${food.id}', -1)"
+                            aria-label="Diminuisci quantità">−</button>
+
+                        <span class="quantity-value">
+                            ${escapeHTML(String(food.quantity))}
+                        </span>
+
+                        <button class="quantity-button"
+                            onclick="changeQuantity('${food.id}', 1)"
+                            aria-label="Aumenta quantità">+</button>
+                    </div>
+
+                    <span class="unit-label">
+                        ${escapeHTML(food.unit)}
+                    </span>
+                </div>
+
+                <div class="food-details">
+                    Congelato a: ${formatDate(food.date)}
+                </div>
+
+                <div class="food-actions">
+                    <button class="secondary"
+                        onclick="showForm('${food.id}')">
+                        Modifica
+                    </button>
+
+                    <button class="secondary"
+                        onclick="moveFood('${food.id}')">
+                        Sposta
+                    </button>
+
+                    <button class="danger"
+                        onclick="deleteFood('${food.id}')">
+                        Elimina
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function deleteFood(id) {
+        const food = foods.find(item => item.id === id);
+
+        if (!food) return;
+
+        if (!confirm('Vuoi eliminare ' + food.name + '?')) return;
+
+        foods = foods.filter(item => item.id !== id);
+
+        saveFoods();
+        renderFoods();
+        updateCounts();
+    }
+
+    function formatDate(value) {
+        const parts = value.split('-');
+
+        const months = [
+            'Gennaio', 'Febbraio', 'Marzo', 'Aprile',
+            'Maggio', 'Giugno', 'Luglio', 'Agosto',
+            'Settembre', 'Ottobre', 'Novembre', 'Dicembre'
+        ];
+
+        const month = Number(parts[1]);
+
+        return months[month - 1] + ' ' + parts[0];
+    }
+
+    function updateCounts() {
+        for (let freezer = 1; freezer <= 2; freezer++) {
+            ['Alto', 'Centrale', 'Basso'].forEach(position => {
+
+                const count = foods.filter(food =>
+                    food.freezer === 'Congelatore ' + freezer &&
+                    food.position === position
+                ).length;
+
+                document.getElementById(
+                    `count-${freezer}-${position}`
+                ).textContent =
+                    count + (count === 1 ? ' alimento' : ' alimenti');
+            });
+        }
+    }
+
+    function escapeHTML(value) {
+        return String(value).replace(/[&<>"']/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        })[char]);
+    }
+
+    updateCounts();
+
+</script>
+
+</body>
+</html>
