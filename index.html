@@ -38,6 +38,32 @@
         .intro h2 { margin-bottom: 8px; }
         .intro p { color: #71808d; margin: 0; }
 
+        .account-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            background: white;
+            padding: 13px 18px;
+            border-bottom: 1px solid #dce3e8;
+        }
+
+        .account-info {
+            font-size: 13px;
+            color: #71808d;
+        }
+
+        .account-info strong { color: #263746; }
+
+        .sync-status {
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .sync-status.online { color: #26834c; }
+        .sync-status.offline { color: #a36a22; }
+
         .freezers {
             display: flex;
             align-items: flex-start;
@@ -224,7 +250,6 @@
         }
 
         .form-box h3 { margin-top: 0; }
-
         .form-group { margin-bottom: 16px; }
 
         .form-group label {
@@ -255,8 +280,6 @@
             color: #71808d;
             margin-bottom: 20px;
         }
-
-        /* Backup */
 
         .backup-box {
             display: flex;
@@ -296,9 +319,7 @@
                 border-radius: 12px;
             }
 
-            .freezer h3 {
-                font-size: 13px;
-            }
+            .freezer h3 { font-size: 13px; }
 
             .drawer {
                 min-height: 85px;
@@ -306,15 +327,8 @@
                 gap: 7px;
             }
 
-            .drawer strong {
-                font-size: 13px;
-            }
-
-            .handle {
-                width: 40px;
-                height: 6px;
-            }
-
+            .drawer strong { font-size: 13px; }
+            .handle { width: 40px; height: 6px; }
             .drawer-content { padding: 17px; }
         }
     </style>
@@ -326,6 +340,24 @@
     <h1>❄️ Freezer Manager</h1>
     <p>Il tuo inventario, sempre sotto controllo.</p>
 </header>
+
+<div class="account-bar">
+    <div class="account-info">
+        <div id="accountLabel"><strong>Non connesso</strong></div>
+        <div id="syncStatus" class="sync-status offline">
+            Dati salvati localmente
+        </div>
+    </div>
+
+    <div>
+        <button id="loginButton" class="primary" onclick="loginGoogle()">
+            Accedi con Google
+        </button>
+        <button id="logoutButton" class="secondary hidden" onclick="logoutGoogle()">
+            Esci
+        </button>
+    </div>
+</div>
 
 <main>
 
@@ -383,8 +415,6 @@
 
         </div>
 
-        <!-- Backup -->
-
         <div class="backup-box">
             <button class="secondary" onclick="exportBackup()">
                 ↓ Esporta backup
@@ -407,7 +437,6 @@
             Conserva periodicamente una copia del tuo inventario.
             Il backup contiene tutti gli alimenti e le relative informazioni.
         </p>
-
     </div>
 
     <div id="drawerPage" class="hidden">
@@ -488,36 +517,283 @@
 
                 </form>
             </div>
-
         </div>
     </div>
 
 </main>
 
-<script>
+<script type="module">
+
+    // FIREBASE
+
+    import { initializeApp }
+        from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
+
+    import {
+        getAuth,
+        GoogleAuthProvider,
+        signInWithPopup,
+        signOut,
+        onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
+
+    import {
+        getFirestore,
+        doc,
+        getDoc,
+        setDoc,
+        onSnapshot,
+        serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyArbmNU-BCKzEQPzGzUyzLsfsafgtHaVq0",
+        authDomain: "freezer-manager-abd8c.firebaseapp.com",
+        projectId: "freezer-manager-abd8c",
+        storageBucket: "freezer-manager-abd8c.firebasestorage.app",
+        messagingSenderId: "731877948619",
+        appId: "1:731877948619:web:e08ea467f2981670072f4e"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const googleProvider = new GoogleAuthProvider();
+
+    // DATI
 
     const STORAGE_KEY = 'freezerManagerFoods';
+    const OWNER_KEY = 'freezerManagerOwner';
 
     let foods = loadFoods();
     let currentFreezer = '';
     let currentPosition = '';
     let editingId = null;
 
+    let currentUser = null;
+    let cloudReady = false;
+    let unsubscribeFoods = null;
+    let applyingRemote = false;
+    let authOperation = 0;
+    let pendingSave = Promise.resolve();
+
     function loadFoods() {
         try {
-            return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+            return Array.isArray(saved) ? saved : [];
         } catch (error) {
             return [];
         }
     }
 
-    function saveFoods() {
+    function saveLocalFoods() {
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(foods));
+            return true;
         } catch (error) {
             alert('Impossibile salvare i dati nel browser.');
+            return false;
         }
     }
+
+    function saveFoods() {
+        if (!saveLocalFoods()) return;
+
+        if (!currentUser || !cloudReady || applyingRemote) return;
+
+        const foodsToSave = JSON.parse(JSON.stringify(foods));
+        const userId = currentUser.uid;
+
+        pendingSave = pendingSave
+            .then(() => {
+                return setDoc(
+                    doc(db, 'users', userId, 'inventory', 'main'),
+                    {
+                        foods: foodsToSave,
+                        updatedAt: serverTimestamp()
+                    }
+                );
+            })
+            .catch(error => {
+                console.error('Errore sincronizzazione:', error);
+                setSyncStatus('Errore di sincronizzazione. Controlla la connessione.', false);
+            });
+    }
+
+    function setSyncStatus(message, online) {
+        const element = document.getElementById('syncStatus');
+        element.textContent = message;
+        element.className = 'sync-status ' + (online ? 'online' : 'offline');
+    }
+
+    function updateAccountUI(user) {
+        const label = document.getElementById('accountLabel');
+        const login = document.getElementById('loginButton');
+        const logout = document.getElementById('logoutButton');
+
+        if (user) {
+            label.innerHTML = '<strong>' + escapeHTML(user.displayName || user.email) + '</strong>';
+            login.classList.add('hidden');
+            logout.classList.remove('hidden');
+        } else {
+            label.innerHTML = '<strong>Non connesso</strong>';
+            login.classList.remove('hidden');
+            logout.classList.add('hidden');
+            setSyncStatus('Dati salvati localmente', false);
+        }
+    }
+
+    // ACCESSO GOOGLE
+
+    async function loginGoogle() {
+        try {
+            await signInWithPopup(auth, googleProvider);
+        } catch (error) {
+            console.error(error);
+
+            if (error.code === 'auth/popup-closed-by-user') return;
+
+            if (error.code === 'auth/unauthorized-domain') {
+                alert('Questo dominio non è autorizzato in Firebase Authentication. Aggiungilo ai domini autorizzati.');
+            } else {
+                alert('Errore durante l’accesso Google: ' + error.message);
+            }
+        }
+    }
+
+    async function logoutGoogle() {
+        if (!confirm('Vuoi uscire dal tuo account Google?')) return;
+
+        try {
+            await signOut(auth);
+        } catch (error) {
+            alert('Errore durante la disconnessione: ' + error.message);
+        }
+    }
+
+    window.loginGoogle = loginGoogle;
+    window.logoutGoogle = logoutGoogle;
+
+    // AUTENTICAZIONE E SINCRONIZZAZIONE
+
+    onAuthStateChanged(auth, async user => {
+
+        const operation = ++authOperation;
+
+        if (unsubscribeFoods) {
+            unsubscribeFoods();
+            unsubscribeFoods = null;
+        }
+
+        currentUser = user;
+        cloudReady = false;
+        updateAccountUI(user);
+
+        if (!user) return;
+
+        setSyncStatus('Collegamento a Firebase in corso...', false);
+
+        try {
+            const previousOwner = localStorage.getItem(OWNER_KEY);
+
+            // Evita di trasferire i dati locali di un altro account.
+            if (previousOwner && previousOwner !== user.uid) {
+                foods = [];
+                saveLocalFoods();
+            }
+
+            const inventoryRef = doc(
+                db,
+                'users',
+                user.uid,
+                'inventory',
+                'main'
+            );
+
+            const snapshot = await getDoc(inventoryRef);
+
+            if (operation !== authOperation) return;
+
+            if (snapshot.exists()) {
+
+                const remoteFoods = snapshot.data().foods;
+
+                if (!Array.isArray(remoteFoods)) {
+                    throw new Error('Il formato dei dati online non è valido.');
+                }
+
+                applyingRemote = true;
+                foods = remoteFoods;
+                saveLocalFoods();
+                applyingRemote = false;
+
+            } else {
+
+                // Primo accesso: trasferisce online i dati già presenti.
+                await setDoc(inventoryRef, {
+                    foods: foods,
+                    updatedAt: serverTimestamp()
+                });
+
+                if (operation !== authOperation) return;
+            }
+
+            localStorage.setItem(OWNER_KEY, user.uid);
+
+            cloudReady = true;
+            updateCounts();
+
+            if (!document.getElementById('drawerPage').classList.contains('hidden')) {
+                renderFoods();
+            }
+
+            setSyncStatus('Sincronizzazione attiva', true);
+
+            unsubscribeFoods = onSnapshot(
+                inventoryRef,
+                snapshot => {
+
+                    if (!snapshot.exists()) return;
+
+                    const remoteFoods = snapshot.data().foods;
+
+                    if (!Array.isArray(remoteFoods)) return;
+
+                    applyingRemote = true;
+                    foods = remoteFoods;
+                    saveLocalFoods();
+                    applyingRemote = false;
+
+                    updateCounts();
+
+                    if (!document.getElementById('drawerPage').classList.contains('hidden')) {
+                        renderFoods();
+                    }
+
+                    setSyncStatus('Sincronizzazione attiva', true);
+                },
+                error => {
+                    console.error('Errore Firestore:', error);
+                    setSyncStatus('Errore di sincronizzazione: ' + error.message, false);
+                }
+            );
+
+        } catch (error) {
+
+            applyingRemote = false;
+            console.error('Errore inizializzazione Firebase:', error);
+
+            cloudReady = false;
+
+            if (error.code === 'permission-denied') {
+                setSyncStatus('Accesso negato: controlla le regole Firestore.', false);
+                alert('Firebase ha negato l’accesso al database. Controlla le regole di sicurezza Firestore.');
+            } else {
+                setSyncStatus('Errore di collegamento a Firebase.', false);
+                alert('Impossibile collegarsi a Firebase: ' + error.message);
+            }
+        }
+    });
 
     // ESPORTAZIONE BACKUP
 
@@ -530,12 +806,7 @@
         };
 
         const content = JSON.stringify(backup, null, 2);
-
-        const blob = new Blob(
-            [content],
-            { type: 'application/json' }
-        );
-
+        const blob = new Blob([content], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
 
         const link = document.createElement('a');
@@ -555,7 +826,6 @@
 
     function importBackup(event) {
         const file = event.target.files[0];
-
         if (!file) return;
 
         const reader = new FileReader();
@@ -636,6 +906,8 @@
         reader.readAsText(file);
     }
 
+    // GESTIONE CASSETTI
+
     function openDrawer(freezer, position) {
         currentFreezer = freezer;
         currentPosition = position;
@@ -659,6 +931,8 @@
         updateCounts();
     }
 
+    // FORM ALIMENTI
+
     function showForm(foodId = null) {
         editingId = foodId;
 
@@ -672,7 +946,6 @@
 
         if (foodId !== null) {
             const food = foods.find(item => item.id === foodId);
-
             if (!food) return;
 
             document.getElementById('foodName').value = food.name;
@@ -727,8 +1000,7 @@
                 document.getElementById('foodQuantity').value
             );
 
-            const selectedUnit =
-                document.getElementById('foodUnit').value;
+            const selectedUnit = document.getElementById('foodUnit').value;
 
             const unit = selectedUnit === 'Personalizzata'
                 ? document.getElementById('customUnit').value.trim()
@@ -769,15 +1041,13 @@
         }
     );
 
-    // Modifica rapida della quantità
+    // MODIFICA RAPIDA QUANTITA'
 
     function changeQuantity(id, direction) {
         const food = foods.find(item => item.id === id);
-
         if (!food) return;
 
         const unit = food.unit.trim().toLowerCase();
-
         const step = (unit === 'g' || unit === 'grammi') ? 100 : 1;
 
         const newQuantity = Number(food.quantity) + (step * direction);
@@ -790,11 +1060,10 @@
         renderFoods();
     }
 
-    // Spostamento dell'alimento
+    // SPOSTAMENTO ALIMENTO
 
     function moveFood(id) {
         const food = foods.find(item => item.id === id);
-
         if (!food) return;
 
         const freezerOptions = [
@@ -860,6 +1129,8 @@
         alert('Alimento spostato correttamente.');
     }
 
+    // VISUALIZZAZIONE ALIMENTI
+
     function renderFoods() {
         const list = document.getElementById('foodList');
 
@@ -883,7 +1154,7 @@
 
                     <div class="quantity-controls">
                         <button class="quantity-button"
-                            onclick="changeQuantity('${food.id}', -1)"
+                            onclick="changeQuantity('${escapeHTML(food.id)}', -1)"
                             aria-label="Diminuisci quantità">−</button>
 
                         <span class="quantity-value">
@@ -891,7 +1162,7 @@
                         </span>
 
                         <button class="quantity-button"
-                            onclick="changeQuantity('${food.id}', 1)"
+                            onclick="changeQuantity('${escapeHTML(food.id)}', 1)"
                             aria-label="Aumenta quantità">+</button>
                     </div>
 
@@ -906,17 +1177,17 @@
 
                 <div class="food-actions">
                     <button class="secondary"
-                        onclick="showForm('${food.id}')">
+                        onclick="showForm('${escapeHTML(food.id)}')">
                         Modifica
                     </button>
 
                     <button class="secondary"
-                        onclick="moveFood('${food.id}')">
+                        onclick="moveFood('${escapeHTML(food.id)}')">
                         Sposta
                     </button>
 
                     <button class="danger"
-                        onclick="deleteFood('${food.id}')">
+                        onclick="deleteFood('${escapeHTML(food.id)}')">
                         Elimina
                     </button>
                 </div>
@@ -924,9 +1195,10 @@
         `).join('');
     }
 
+    // ELIMINAZIONE
+
     function deleteFood(id) {
         const food = foods.find(item => item.id === id);
-
         if (!food) return;
 
         if (!confirm('Vuoi eliminare ' + food.name + '?')) return;
@@ -937,6 +1209,8 @@
         renderFoods();
         updateCounts();
     }
+
+    // DATE
 
     function formatDate(value) {
         const parts = value.split('-');
@@ -951,6 +1225,8 @@
 
         return months[month - 1] + ' ' + parts[0];
     }
+
+    // CONTATORI
 
     function updateCounts() {
         for (let freezer = 1; freezer <= 2; freezer++) {
@@ -969,6 +1245,8 @@
         }
     }
 
+    // SICUREZZA HTML
+
     function escapeHTML(value) {
         return String(value).replace(/[&<>"']/g, char => ({
             '&': '&amp;',
@@ -978,6 +1256,18 @@
             "'": '&#39;'
         })[char]);
     }
+
+    // FUNZIONI ACCESSIBILI DAI PULSANTI HTML
+
+    window.openDrawer = openDrawer;
+    window.goHome = goHome;
+    window.showForm = showForm;
+    window.hideForm = hideForm;
+    window.exportBackup = exportBackup;
+    window.importBackup = importBackup;
+    window.changeQuantity = changeQuantity;
+    window.moveFood = moveFood;
+    window.deleteFood = deleteFood;
 
     updateCounts();
 
